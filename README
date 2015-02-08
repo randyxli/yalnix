@@ -1,0 +1,74 @@
+###############################
+CS58 Yalnix Project Submission
+Group Name: Students of Smith
+Randy X. Li
+Samuel Tan Jun Jie
+###############################
+
+## DESCRIPTION
+
+This is the submission for the CS58 F12 Yalnix kernel project
+
+The source code implements the Yalnix kernel as per specifications given
+in the Yalnix manual.
+
+## DESIGN NOTES
+
+- Our Queue data structure is not strictly used as a queue (as defined by convention) in all cases. We use the underlying doubly linked list of the Queue structure as a list in some cases (e.g. graveyard in pcb). We call
+functions removeFromList, searchLL, and enqueue to remove, search and add from this list respectively. We choose this data structure for it's simplicity and ease of visualization.
+
+- We keep track of free frames using a Queue of free frame numbers. We use this same technique to keep track of free pipe, cvar, lock and semaphore numbers
+
+- We choose to call SysExit() on a process immediately if kernel malloc fails while it is executing. Doing so might leave some memory successfully malloc'd in the function betfore the failed malloc call un-freed, but we felt that the cost of accounting for such mallocs and cleaning up on each possible failed malloc occurence was not worth the benefit of slightly reduced memory leaks
+
+- For our implementation of Semaphores, we do not re-up any semaphores that a process has downed (and has not yet correspondingly upped) before exiting. We chose this because we felt that keeping track of how many times a process has downed a semaphore and which semaphores it has downed was very expensive, and it is not clear if this "re-upping" is a principled implementation of a semaphore. The result of this decision is that a process can permanantly remove resources from the semaphore's pool (e.g. down val till it is 0) and exit, possibly leaving all other processes blocking for a down blocked forever if no other process will up the semaphore after.
+
+- For Cvars, if CvarSignal or CvarBroadcast are called when no process is waiting on the cvar, we do not treat this as an error, and do nothing instead. We chose in line with the "doorbell ring with no one at home" analogy used in class.
+
+- Our pipes have semantics that are markedly different from the Linux implementation, but still fall within the bounds of the spec and provide effective inter-process communication. The key difference is that for each pipe there can be only one reader and one writer, which are decided on a first-come-first-serve basis. Please see the pipe syscall source code in ./src/syscalls.c for more details.
+
+- For the TTY syscalls, the spec covers most details except one key question: if the user types something into a terminal, but no process is listening for it, do we care about everything the user types? We say that we don't care enough to go through all the extra hassle of storing everything the user types, so we store only the last line typed. See additional comments in TTY traps in ./src/trap.c.
+
+## SOURCE CODE DETAILS
+
+The submission includes:
+
+test/
+
+- This folder contains all test code written by us and provided to us by the CS 58 staff. There are several files that trigger compiler warnings. Vijay's cp4_test and cp5_test both trigger warnings, and trapmath_test divides by zero to test illegal math operation exception handling. The tests that are written by us typically follow the X_test naming convention, where X is the thing being tested.
+
+userprog/
+
+- This folder contains default user programs for Yalnix
+
+=> idle.c: Contains code for idle process
+=> init.c: Contains code for default init process. It prints and delays in an infinite loop.
+
+src/
+
+- This folder contains all source code for our Yalnix implementation
+
+=> kernel.c: Contains code for kernel bootstrapping, debugging print utilities, kernel context switch functions, memory bookkeeping, and miscellanous kernel-related bookkeeping functions.
+=> syscalls.c: Contains code for all Yalnix system (kernel) calls, including extra functionality in semaphores
+=> trap.c: Contains code for all Yalnix trap handlers
+=> linkedlist.c: Contains code for our Queue and underlying doubly linked list implementation
+=> datastructures.h: Contains data structure (including pcb) struct defintions and function prototypes for our Queue and linked lists
+=> kernel.h: Contain various defines (including error codes), global variables and function prototypes used by trap.c, kernel.c and syscalls.c
+=> header.h: Contains utility macros (from CS50)
+
+
+## TO BUILD 
+
+To build Yalnix
+
+- cd to /final folder and type "make"
+
+To clean up
+
+- cd to /final folder and type "make clean"
+
+## TO RUN
+
+- Follow instructions in yalnix manual
+- Note: remember that path to the program passed to yalnix on command line must be relative to the current folder that yalnix resides in, /final (e.g. run init with yalnix ./userprog/init)
+- All error messages print at TracePrintf level 1. Syscall and trap entrance and exit tracking print at level 50. Scheduling and other useful information prints at level 75. Level 100 prints everything.
